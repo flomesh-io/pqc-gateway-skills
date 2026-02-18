@@ -1,0 +1,60 @@
+# Rate Limiting Example
+resources:
+  - kind: Gateway
+    metadata:
+      name: rate-limited-gw
+    spec:
+      listeners:
+        - name: https
+          port: 443
+          protocol: HTTPS
+          tls:
+            mode: Terminate
+            pqc:
+              keyExchange: X25519:X25519MLKEM768
+            certificates:
+              - tls.crt: server.crt
+                tls.key: server.key
+
+  - kind: HTTPRoute
+    metadata:
+      name: api-route
+    spec:
+      parentRefs:
+        - kind: Gateway
+          name: rate-limited-gw
+      rules:
+        - filters:
+            - type: RateLimit
+              key: api-rate-limit
+              rateLimit:
+                burst: 100
+                requests: 50
+                interval: 1
+                backlog: 50
+                response:
+                  status: 429
+                  headers:
+                    x-rate-limit: "true"
+                    retry-after: "5"
+                  body: "Rate limit exceeded"
+          backendRefs:
+            - kind: Backend
+              name: api-backend
+
+  - kind: Backend
+    metadata:
+      name: api-backend
+    spec:
+      targets:
+        - address: 127.0.0.1
+          port: 3000
+
+secrets:
+  server.crt: |
+    -----BEGIN CERTIFICATE-----
+    -----END CERTIFICATE-----
+
+  server.key: |
+    -----BEGIN PRIVATE KEY-----
+    -----END PRIVATE KEY-----

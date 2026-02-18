@@ -1,0 +1,74 @@
+# PQC TLS Termination with Routing
+resources:
+  - kind: Gateway
+    metadata:
+      name: https-pqc
+    spec:
+      listeners:
+        - name: https
+          port: 443
+          protocol: HTTPS
+          tls:
+            mode: Terminate
+            pqc:
+              keyExchange: X25519:X25519MLKEM768
+            certificates:
+              - tls.crt: server.crt
+                tls.key: server.key
+
+  - kind: HTTPRoute
+    metadata:
+      name: app-route
+    spec:
+      parentRefs:
+        - kind: Gateway
+          name: https-pqc
+      hostnames:
+        - example.com
+      rules:
+        - filters:
+            - type: RequestHeaderModifier
+              requestHeaderModifier:
+                set:
+                  - name: X-Forwarded-Host
+                    value: example.com
+          backendRefs:
+            - kind: Backend
+              name: backend-service
+              port: 443
+
+  - kind: Backend
+    metadata:
+      name: backend-service
+    spec:
+      targets:
+        - address: 127.0.0.1
+          port: 8080
+
+  - kind: BackendTLSPolicy
+    metadata:
+      name: backend-tls
+    spec:
+      targetRefs:
+        - kind: Backend
+          name: backend-service
+      validation:
+        hostname: example.com
+        caCertificates:
+          ca.crt: |
+
+secrets:
+  server.crt: |
+    -----BEGIN CERTIFICATE-----
+    # Your certificate here
+    -----END CERTIFICATE-----
+
+  server.key: |
+    -----BEGIN PRIVATE KEY-----
+    # Your private key here
+    -----END PRIVATE KEY-----
+
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    # CA certificate for backend
+    -----END CERTIFICATE-----

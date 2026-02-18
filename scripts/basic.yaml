@@ -1,0 +1,25 @@
+# Simple HTTP to HTTPS redirect
+resources:
+  - kind: Gateway
+    metadata:
+      name: plain-http
+    spec:
+      listeners:
+        - name: http-redirect
+          port: 80
+          protocol: HTTP
+
+  - kind: HTTPRoute
+    metadata:
+      name: redirect-to-https
+    spec:
+      parentRefs:
+        - kind: Gateway
+          name: plain-http
+          sectionName: http-redirect
+      rules:
+        - filters:
+            - type: RequestRedirect
+              requestRedirect:
+                scheme: https
+                statusCode: 301
